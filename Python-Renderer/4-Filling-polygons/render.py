@@ -1,6 +1,7 @@
 import struct
 import random
 import numpy
+import cProfile
 from collections import namedtuple
 
 def color(r,g,b):
@@ -274,7 +275,10 @@ class Render(object):
                 self.triangle(A,B,C,color(grey,grey,grey))
                 self.triangle(A,C,D,color(grey,grey,grey))
 
-r = Render(800,600)
-r.load('hand.obj',(25, 25, 0), (10, 10, 10))
-r.display()
-r.display('out.bmp')
+def run():
+    r = Render(800,600)
+    r.load('hand.obj',(25, 25, 0), (10, 10, 10))
+    r.display()
+    r.display('out.bmp')
+
+cProfile.run('run()')

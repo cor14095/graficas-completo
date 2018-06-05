@@ -1,0 +1,8 @@
+
+Run with barycentric:
+- python3 render.py
+- 1418815 function calls (1418811 primitive calls) in 1.072 seconds
+
+Run with triangles:
+- python3 render.py
+- 1243933 function calls (1243929 primitive calls) in 0.901 seconds
