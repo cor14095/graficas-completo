@@ -4,12 +4,14 @@ import numpy
 import cProfile
 from collections import namedtuple
 
-def color(r,g,b):
+def color(r, g, b):
     return bytes([r, g, b])
 
-BLACK = color(0,0,0)
-WHITE = color(255,255,255)
+BLACK = color(0, 0, 0)
+WHITE = color(255, 255, 255)
 RED = color(200, 0, 0)
+GRAY = color(200, 200, 200)
+GREEN = color(50, 150, 50)
 
 def char(c):
     return struct.pack('=c', c.encode('ascii'))
@@ -19,23 +21,6 @@ def word(w):
 
 def dword(d):
     return struct.pack('=l',d)
-
-class Obj(object):
-    def __init__(self,filename):
-        with open(filename) as f:
-            self.lines = f.read().splitlines()
-        self.vertices = []
-        self.vfaces = []
-        self.read()
-
-    def read(self):
-        for line in self.lines:
-            if line:
-                prefix,value = line.split(' ',1)
-                if prefix == "v":
-                    self.vertices.append(list(map(float,value.split(' '))))
-                elif prefix =="f":
-                    self.vfaces.append([list(map(int,face.split('/'))) for face in value.split(' ')])
 
 V2 = namedtuple('Point2',['x','y'])
 V3 = namedtuple('Point3',['x','y','z'])
@@ -90,9 +75,32 @@ def barycentric(A,B,C,P):
         bary[0] / bary[2]
     )
 
+def try_int(s, base=10, val=None):
+    try:
+        return int(s,base)
+    except ValueError:
+        return val
+
+class Obj(object):
+
+    def __init__(self,filename):
+        with open(filename) as f:
+            self.lines = f.read().splitlines()
+        self.vertices = []
+        self.vfaces = []
+        self.read()
+
+    def read(self):
+        for line in self.lines:
+            if line:
+                prefix,value = line.split(' ',1)
+                if prefix == "v":
+                    self.vertices.append(list(map(float,value.split(' '))))
+                elif prefix =="f":
+                    self.vfaces.append([list(map(try_int,face.split('/'))) for face in value.split(' ')])
+
 class Render(object):
     def __init__(self,width,height):
-
         self.width = width
         self.height = height
         self.current_color = WHITE
@@ -104,20 +112,21 @@ class Render(object):
 
     def clear(self):
         self.pixels = [
-            [WHITE for x in range(self.width)]
+            [GREEN for x in range(self.width)]
+            for y in range(self.height)
+        ]
+        self.zbuffer = [
+            [-float('inf') for x in range(self.width)]
             for y in range(self.height)
         ]
 
     def write(self,filename):
         f = open(filename,'bw')
-         #HEADER
         f.write(char('B'))
         f.write(char('M'))
         f.write(dword(14+40+self.width * self.height *3))
         f.write(dword(0))
         f.write(dword(14+40))
-
-        #IMAGE HEADER (40 BYTES)
         f.write(dword(40))
         f.write(dword(self.width))
         f.write(dword(self.height))
@@ -129,11 +138,9 @@ class Render(object):
         f.write(dword(0))
         f.write(dword(0))
         f.write(dword(0))
-
         for x in range(self.height):
             for y in range(self.width):
                 f.write(self.pixels[x][y])
-
         f.close()
 
     def display(self, filename='out.bmp'):
@@ -146,18 +153,18 @@ class Render(object):
         except ImportError:
             pass
 
+    def set_color(self,color):
+        self.current_color = color
+
     def point(self, x, y, color = None):
         try:
             self.pixels[y][x] = color or self.current_color
         except:
             pass
 
-    def set_color(self,color):
-        self.current_color = color
-
     def line(self, start, end, color):
-        x1, y1 = start
-        x2, y2 = end
+        x1, y1 = start.x, start.y
+        x2, y2 = end.x, end.y
 
         dy = abs(y2 - y1)
         dx = abs(x2 - x1)
@@ -196,7 +203,13 @@ class Render(object):
                 w,v,u = barycentric(A,B,C,V2(x,y))
                 if w<0 or v<0 or u<0:
                     continue
-                self.point(x,y,color)
+                z = A.z * w +  B.z *v + C.z * u
+                try:
+                    if(z>self.zbuffer[x][y]):
+                        self.point(x,y,color)
+                        self.zbuffer[x][y] = z
+                except:
+                    pass
 
     def transform(self,vertex,translate=(0,0,0),scale=(1,1,1)):
         return V3(
@@ -254,7 +267,7 @@ class Render(object):
 
 def run():
     r = Render(800,600)
-    r.load('hand.obj',(25, 25, 0), (10, 10, 10))
+    r.load('nina.obj',(0.7, 0.2, 0), (500, 500, 300))
     r.display()
     r.display('out.bmp')
 
